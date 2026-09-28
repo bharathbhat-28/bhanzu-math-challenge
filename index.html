@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bhanzu Math Challenge</title>
+    <!-- Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: #F8FAFC; 
+            -webkit-tap-highlight-color: transparent; 
+            overflow-x: hidden; 
+            margin: 0;
+        }
+        .bhanzu-gradient { background: linear-gradient(135deg, #FF6B35 0%, #F7C548 100%); }
+        .card-shadow { box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); }
+        
+        /* Feedback Animation */
+        .feedback-pop { 
+            animation: pop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        @keyframes pop { 
+            0% { transform: scale(0.5); opacity: 0; } 
+            100% { transform: scale(1); opacity: 1; } 
+        }
+
+        .timer-low { color: #EF4444; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+        /* Smooth button transition */
+        .btn-transition { transition: all 0.2s ease-in-out; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const QUESTIONS = [
+            { 
+                id: 1, 
+                question: "If a rectangular garden has a length of 8 meters and a width of 5 meters, what is the total distance around its edge (perimeter)?", 
+                options: ["13 meters", "26 meters", "40 meters", "20 meters"], 
+                correct: "26 meters" 
+            },
+            { 
+                id: 2, 
+                question: "Look at the pattern: 1, 4, 9, 16, 25... If the next number is 36, what is the sum of its digits?", 
+                options: ["7", "11", "9", "10"], 
+                correct: "9" 
+            },
+            { 
+                id: 3, 
+                question: "If 3 identical boxes contain a total of 45 pens, how much would 5 of these boxes cost if each pen is ₹10?", 
+                options: ["₹450", "₹150", "₹750", "₹600"], 
+                correct: "₹750" 
+            },
+            { 
+                id: 4, 
+                question: "In a club, the ratio of boys to girls is 3:2. If there are 12 boys, how many total members (boys and girls) are in the club?", 
+                options: ["20", "18", "24", "30"], 
+                correct: "20" 
+            },
+            { 
+                id: 5, 
+                question: "A square has a perimeter of 40cm. If it is cut exactly in half to form two identical rectangles, what is the perimeter of one of those rectangles?", 
+                options: ["20cm", "30cm", "25cm", "35cm"], 
+                correct: "30cm" 
+            },
+            { 
+                id: 6, 
+                question: "Two lines cross each other. If one of the angles formed is 45°, what is the measure of the angle directly next to it on the same straight line?", 
+                options: ["45°", "90°", "135°", "155°"], 
+                correct: "135°" 
+            },
+            { 
+                id: 7, 
+                question: "A train 100 meters long passes a static electric pole in exactly 10 seconds. What is the speed of the train in km/h?", 
+                options: ["10 km/h", "36 km/h", "60 km/h", "45 km/h"], 
+                correct: "36 km/h" 
+            },
+            { 
+                id: 8, 
+                question: "I am a 2-digit number. The sum of my digits is 9. If you add 9 to me, my digits swap places. What number am I?", 
+                options: ["36", "54", "45", "18"], 
+                correct: "45" 
+            },
+            { 
+                id: 9, 
+                question: "In a dark room, a bag contains 5 red socks and 5 blue socks. What is the minimum number of socks you must pull out to guarantee a matching pair?", 
+                options: ["2", "3", "5", "6"], 
+                correct: "3" 
+            },
+            { 
+                id: 10, 
+                question: "A special rule is used: 3 ★ 2 = 13 and 4 ★ 1 = 17. Using the same rule, what is 5 ★ 3?", 
+                options: ["34", "15", "25", "30"], 
+                correct: "34" 
+            }
+        ];
+
+        const FEEDBACK_PHRASES = ["Nice! 🔥", "Good one!", "Great thinking!", "Cracked it! 🎯", "On fire! 🚀"];
+
+        const App = () => {
+            const [step, setStep] = useState('welcome'); 
+            const [currentIdx, setCurrentIdx] = useState(0);
+            const [userAnswers, setUserAnswers] = useState({});
+            const [selectedInCurrent, setSelectedInCurrent] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(600);
+            const [score, setScore] = useState(0);
+            const [feedback, setFeedback] = useState("");
+            const [isDemoConfirmed, setIsDemoConfirmed] = useState(false);
+
+            // Timer
+            useEffect(() => {
+                let timer;
+                if (step === 'challenge' && timeLeft > 0) {
+                    timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+                } else if (timeLeft === 0 && step === 'challenge') {
+                    calculateAndFinish();
+                }
+                return () => clearInterval(timer);
+            }, [step, timeLeft]);
+
+            const handleOptionSelect = (val) => {
+                setSelectedInCurrent(val);
+                // Random feedback phrase
+                const randomMsg = FEEDBACK_PHRASES[Math.floor(Math.random() * FEEDBACK_PHRASES.length)];
+                setFeedback(randomMsg);
+                // Clear feedback after a moment
+                setTimeout(() => setFeedback(""), 1500);
+            };
+
+            const handleNext = () => {
+                const updatedAnswers = { ...userAnswers, [currentIdx]: selectedInCurrent };
+                setUserAnswers(updatedAnswers);
+                
+                if (currentIdx < QUESTIONS.length - 1) {
+                    setCurrentIdx(prev => prev + 1);
+                    setSelectedInCurrent(null);
+                    setFeedback("");
+                } else {
+                    calculateAndFinish(updatedAnswers);
+                }
+            };
+
+            const calculateAndFinish = (finalAnswers = userAnswers) => {
+                let s = 0;
+                QUESTIONS.forEach((q, i) => { 
+                    if (finalAnswers[i] === q.correct) s++; 
+                });
+                setScore(s);
+                setStep('result');
+            };
+
+            const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+            // --- UI Screens ---
+
+            if (step === 'welcome') return (
+                <div className="min-h-screen flex flex-col p-8 items-center justify-center bg-white">
+                    <div className="w-full max-w-md text-center">
+                        <div className="mb-10 text-orange-600 font-black text-3xl tracking-tighter italic">BHANZU</div>
+                        <h1 className="text-4xl font-bold text-slate-900 mb-4 leading-tight">Ready for a Math Challenge?</h1>
+                        <p className="text-slate-500 text-lg mb-10">10 questions to challenge your math skills. Let’s see what you can crack!</p>
+                        
+                        <div className="flex justify-center gap-6 mb-12">
+                            <div className="text-center">
+                                <div className="font-bold text-xl text-slate-800">10</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Mins</div>
+                            </div>
+                            <div className="w-px h-10 bg-slate-200"></div>
+                            <div className="text-center">
+                                <div className="font-bold text-xl text-slate-800">10</div>
+                                <div className="text-xs text-slate-400 uppercase font-bold tracking-widest">Tasks</div>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => setStep('challenge')} 
+                            className="w-full bhanzu-gradient text-white py-5 rounded-2xl text-xl font-bold shadow-xl active:scale-95 transition-all btn-transition"
+                        >
+                            Start Challenge
+                        </button>
+                    </div>
+                </div>
+            );
+
+            if (step === 'challenge') {
+                const q = QUESTIONS[currentIdx];
+                return (
+                    <div className="min-h-screen flex flex-col bg-slate-50 relative">
+                        {/* Header */}
+                        <div className="bg-white px-6 pt-12 pb-4 border-b sticky top-0 z-10">
+                            <div className="flex justify-between items-center mb-4">
+                                <span className="text-xs font-bold text-slate-400 tracking-widest uppercase">Question {currentIdx + 1}/10</span>
+                                <div className={`font-mono font-bold px-3 py-1 rounded-lg ${timeLeft < 60 ? 'timer-low bg-red-50' : 'text-slate-600 bg-slate-100'}`}>
+                                    {formatTime(timeLeft)}
+                                </div>
+                            </div>
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-orange-500 transition-all duration-500" 
+                                    style={{ width: `${((currentIdx + 1) / 10) * 100}%` }}
+                                ></div>
+                            </div>
+                        </div>
+
+                        {/* Question Content */}
+                        <div className="flex-1 p-6 flex flex-col justify-start max-w-md mx-auto w-full pt-10">
+                            <div className="bg-white p-8 rounded-3xl card-shadow border border-slate-100 mb-8 min-h-[140px] flex items-center relative">
+                                <h2 className="text-xl font-semibold text-slate-800 leading-relaxed">{q.question}</h2>
+                                
+                                {/* Feedback Pop-up */}
+                                {feedback && (
+                                    <div className="absolute -top-4 right-4 bg-orange-600 text-white px-4 py-1.5 rounded-full text-sm font-bold shadow-lg feedback-pop">
+                                        {feedback}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="grid gap-3">
+                                {q.options.map((opt, i) => (
+                                    <button 
+                                        key={i} 
+                                        onClick={() => handleOptionSelect(opt)} 
+                                        className={`p-5 text-left rounded-2xl border-2 transition-all font-bold text-lg btn-transition ${
+                                            selectedInCurrent === opt 
+                                            ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm' 
+                                            : 'border-white bg-white text-slate-600 active:border-slate-200'
+                                        }`}
+                                    >
+                                        <div className="flex items-center">
+                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-4 text-sm ${
+                                                selectedInCurrent === opt ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {String.fromCharCode(65 + i)}
+                                            </div>
+                                            {opt}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Navigation Footer */}
+                        <div className="p-6 bg-white border-t flex justify-center">
+                            <button 
+                                onClick={handleNext} 
+                                disabled={!selectedInCurrent}
+                                className={`w-full max-w-md py-5 rounded-2xl font-bold text-xl shadow-lg transition-all btn-transition ${
+                                    !selectedInCurrent 
+                                    ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' 
+                                    : 'bhanzu-gradient text-white active:scale-95'
+                                }`}
+                            >
+                                {currentIdx === 9 ? "Finish Challenge" : "Next Question"}
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 'result') return (
+                <div className="min-h-screen flex flex-col p-6 bg-white items-center justify-center">
+                    <div className="w-full max-w-md text-center">
+                        <div className="text-6xl mb-4">🎉</div>
+                        <h1 className="text-3xl font-bold text-slate-900">You did it!</h1>
+                        <p className="text-slate-500 mt-2 mb-8 px-4">
+                            {score >= 8 ? "Fantastic! You’ve got some serious math skills." : 
+                             score >= 5 ? "Nice work! You cracked some tricky ones." : 
+                             "Great effort! Every challenge makes you sharper."}
+                        </p>
+                        
+                        <div className="bg-slate-50 rounded-3xl p-8 mb-8 border border-slate-100">
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Your Total Score</div>
+                            <div className="text-6xl font-bold text-slate-900">{score}<span className="text-slate-300 text-3xl">/10</span></div>
+                        </div>
+
+                        {/* Growth Section: The Demo Connection */}
+                        <div className="bg-orange-50 rounded-3xl p-6 mb-8 text-left border-2 border-orange-100">
+                            <h3 className="text-orange-900 font-bold text-xl mb-1">Can you beat your score?</h3>
+                            <p className="text-orange-800 text-sm mb-4">Your Bhanzu Demo is tomorrow at 5:00 PM.</p>
+                            <div className="bg-white p-3 rounded-xl border border-orange-200 text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <span>👀</span> Your teacher has another challenge waiting for you.
+                            </div>
+                        </div>
+
+                        {!isDemoConfirmed ? (
+                            <button 
+                                onClick={() => setIsDemoConfirmed(true)}
+                                className="w-full bhanzu-gradient text-white py-5 rounded-2xl text-xl font-bold shadow-xl flex items-center justify-center gap-2 active:scale-95 btn-transition"
+                            >
+                                I’m Ready for the Demo <span className="text-2xl">→</span>
+                            </button>
+                        ) : (
+                            <div className="w-full bg-green-50 text-green-700 py-5 rounded-2xl text-xl font-bold border-2 border-green-200 animate-pulse">
+                                Awesome! See you there. 🚀
+                                <div className="text-xs mt-1 uppercase opacity-70">Tomorrow • 5:00 PM</div>
+                            </div>
+                        )}
+
+                        <button 
+                            onClick={() => {
+                                setStep('welcome');
+                                setCurrentIdx(0);
+                                setUserAnswers({});
+                                setSelectedInCurrent(null);
+                                setTimeLeft(600);
+                                setIsDemoConfirmed(false);
+                            }} 
+                            className="mt-8 text-slate-400 font-bold text-sm underline underline-offset-4 hover:text-slate-600 btn-transition"
+                        >
+                            Try the practice again
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
