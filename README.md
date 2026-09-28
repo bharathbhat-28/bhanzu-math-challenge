@@ -16,7 +16,7 @@ A child-facing micro-experience designed to maintain engagement and anticipation
 
 ## Live Prototype
 
-[Try the prototype](YOUR-VERCEL-URL)
+[Try the prototype](https://bhanzu-math-challenge.vercel.app/)
 
 ## Prototype Scope
 
